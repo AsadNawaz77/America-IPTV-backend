@@ -89,12 +89,7 @@ app.get("/get-location", async (req, res) => {
   }
 });
 
-// const convertedPrices = {
-//   currency: userCurrency,
-//   monthly: (DEFAULT_PRICES_USD.monthly * conversionRate).toFixed(2),
-//   sixMonths: (DEFAULT_PRICES_USD.sixMonths * conversionRate).toFixed(2),
-//   yearly: (DEFAULT_PRICES_USD.yearly * conversionRate).toFixed(2),
-// };
+
 // 1. User Submission
 app.post(
   "/submit-user",
