@@ -68,6 +68,10 @@ const verifyToken = (req, res, next) => {
 
 app.get("/get-location", async (req, res) => {
   try {
+     const clientIp = req.headers["x-forwarded-for"]
+      ? req.headers["x-forwarded-for"].split(",")[0]
+      : req.socket.remoteAddress;
+    console.log(`Client IP: ${clientIp}`);
     // 1. Get user location
     const locRes = await axios.get(
       `https://ipinfo.io/json?token=${process.env.TOKEN}`
