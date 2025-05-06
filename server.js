@@ -19,20 +19,23 @@ const app = express();
 const port = process.env.PORT || 5000;
 
 // Connect to MySQL
-const connection = mysql.createConnection({
+const connection = mysql.createPool({
   host: process.env.DB_HOST,
   user: process.env.DB_USER,
   password: process.env.DB_PASSWORD,
   database: process.env.DB_NAME,
+  waitForConnections: true,
+  connectionLimit: 10,
+  queueLimit: 0,
 });
 
-connection.connect((err) => {
-  if (err) {
-    console.error("DB connection failed:", err);
-    process.exit(1);
-  }
-  console.log("Connected to MySQL");
-});
+// connection.connect((err) => {
+//   if (err) {
+//     console.error("DB connection failed:", err);
+//     process.exit(1);
+//   }
+//   console.log("Connected to MySQL");
+// });
 
 // === MIDDLEWARE ===
 
@@ -89,12 +92,6 @@ app.get("/get-location", async (req, res) => {
   }
 });
 
-// const convertedPrices = {
-//   currency: userCurrency,
-//   monthly: (DEFAULT_PRICES_USD.monthly * conversionRate).toFixed(2),
-//   sixMonths: (DEFAULT_PRICES_USD.sixMonths * conversionRate).toFixed(2),
-//   yearly: (DEFAULT_PRICES_USD.yearly * conversionRate).toFixed(2),
-// };
 // 1. User Submission
 app.post(
   "/submit-user",
@@ -218,6 +215,7 @@ app.post(
       "SELECT * FROM admin WHERE email = ?",
       [email],
       async (err, results) => {
+        console.log(err);
         if (err) return res.status(500).json({ error: "DB error" });
 
         if (results.length === 0) {
