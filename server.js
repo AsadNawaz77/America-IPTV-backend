@@ -74,7 +74,7 @@ app.get("/get-location", async (req, res) => {
     console.log(`Client IP: ${clientIp}`);
     // 1. Get user location
     const locRes = await axios.get(
-      `https://ipinfo.io/json?token=${process.env.TOKEN}`
+      `https://ipinfo.io/${clientIp}/json?token=${process.env.TOKEN}`
     );
     console.log(locRes.data);
 
