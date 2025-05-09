@@ -28,6 +28,7 @@ const connection = mysql.createPool({
   connectionLimit: 10,
   queueLimit: 0,
 });
+<<<<<<< HEAD
 
 // connection.connect((err) => {
 //   if (err) {
@@ -36,6 +37,8 @@ const connection = mysql.createPool({
 //   }
 //   console.log("Connected to MySQL");
 // });
+=======
+>>>>>>> 87bbc44be56f10f24e370acd981f341670398e3d
 
 // === MIDDLEWARE ===
 
@@ -75,12 +78,20 @@ const verifyToken = (req, res, next) => {
 // For Location
 app.get("/get-location", async (req, res) => {
   try {
+<<<<<<< HEAD
     // 1. Get the user's IP addre
     // ss (from the request header)
     const clientIp = req.headers["x-forwarded-for"]
       ? req.headers["x-forwarded-for"].split(",")[0]
       : req.socket.remoteAddress;
     // 2. Use the real IP to fetch the location
+=======
+     const clientIp = req.headers["x-forwarded-for"]
+      ? req.headers["x-forwarded-for"].split(",")[0]
+      : req.socket.remoteAddress;
+    console.log(`Client IP: ${clientIp}`);
+    // 1. Get user location
+>>>>>>> 87bbc44be56f10f24e370acd981f341670398e3d
     const locRes = await axios.get(
       `https://ipinfo.io/${clientIp}/json?token=${process.env.TOKEN}`
     );
@@ -96,6 +107,10 @@ app.get("/get-location", async (req, res) => {
   }
 });
 
+<<<<<<< HEAD
+=======
+
+>>>>>>> 87bbc44be56f10f24e370acd981f341670398e3d
 // 1. User Submission
 app.post(
   "/submit-user",
