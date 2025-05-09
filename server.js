@@ -73,16 +73,20 @@ const verifyToken = (req, res, next) => {
 
 // === ROUTES ===
 // For Location
-
 app.get("/get-location", async (req, res) => {
   try {
-    // 1. Get user location
+    // 1. Get the user's IP addre
+    // ss (from the request header)
+    const clientIp = req.headers["x-forwarded-for"]
+      ? req.headers["x-forwarded-for"].split(",")[0]
+      : req.socket.remoteAddress;
+    // 2. Use the real IP to fetch the location
     const locRes = await axios.get(
-      `https://ipinfo.io/json?token=${process.env.TOKEN}`
+      `https://ipinfo.io/${clientIp}/json?token=${process.env.TOKEN}`
     );
     console.log(locRes.data);
 
-    // 2. Send country data
+    // 3. Send country data
     res.json({
       country: locRes.data.country, // Send country code in response
     });
@@ -460,6 +464,282 @@ app.delete("/delete-user/:id", verifyToken, (req, res) => {
       }
     );
   });
+});
+// 6. Get latest 3 blogs
+app.get("/get-blogs", (req, res) => {
+  console.log("HELLOP");
+  const query = `
+  SELECT id, title, image_url, intro
+  FROM blogs
+  ORDER BY id DESC
+  LIMIT 3
+`;
+
+  connection.query(query, (err, results) => {
+    if (err) {
+      console.error("Blog fetch error:", err);
+      return res.status(500).json({ error: "Failed to fetch blogs" });
+    }
+
+    res.status(200).json({ blogs: results });
+  });
+});
+// Get all blogs
+app.get("/blogs", (req, res) => {
+  console.log("HELLOP");
+  const query = `
+  SELECT *
+  FROM blogs
+  
+`;
+
+  connection.query(query, (err, results) => {
+    if (err) {
+      console.error("Blog fetch error:", err);
+      return res.status(500).json({ error: "Failed to fetch blogs" });
+    }
+
+    res.status(200).json({ blogs: results });
+  });
+});
+
+// Get Spcific Blog
+app.get("/blogs/:id", (req, res) => {
+  const blogId = req.params.id;
+
+  const query = `
+    SELECT 
+      b.id AS blogId, b.title, b.image_url, b.intro,
+      s.id AS sectionId, s.heading, s.content
+    FROM blogs b
+    LEFT JOIN blog_sections s ON b.id = s.blog_id
+    WHERE b.id = ?
+  `;
+
+  connection.query(query, [blogId], (err, results) => {
+    if (err) {
+      return res
+        .status(500)
+        .json({ error: "Database query failed", details: err });
+    }
+
+    if (results.length === 0) {
+      return res.status(404).json({ message: "Blog not found" });
+    }
+
+    const blog = {
+      id: results[0].blogId,
+      title: results[0].title,
+      image: results[0].image_url, // Use image_url here
+      intro: results[0].intro,
+      sections: results
+        .filter((row) => row.sectionId !== null)
+        .map((row) => ({
+          id: row.sectionId,
+          heading: row.heading,
+          content: row.content,
+        })),
+    };
+
+    res.status(200).json({ blog: blog }); // response key should match frontend
+  });
+});
+
+// Delete blog
+app.delete("/delete-blog/:id", verifyToken, (req, res) => {
+  const blogId = req.params.id;
+
+  // Delete related sections first
+  const deleteSectionsQuery = "DELETE FROM blog_sections WHERE blog_id = ?";
+  connection.query(deleteSectionsQuery, [blogId], (err, result) => {
+    if (err) {
+      return res
+        .status(500)
+        .json({ error: "Failed to delete blog sections", details: err });
+    }
+
+    // Now delete the blog itself
+    const deleteBlogQuery = "DELETE FROM blogs WHERE id = ?";
+    connection.query(deleteBlogQuery, [blogId], (err, result) => {
+      if (err) {
+        return res
+          .status(500)
+          .json({ error: "Failed to delete blog", details: err });
+      }
+
+      res.status(200).json({
+        message: "Blog and related sections deleted successfully",
+      });
+    });
+  });
+});
+
+// Update blog
+
+app.put("/update-blog/:id", verifyToken, (req, res) => {
+  const blogId = req.params.id;
+  const { title, image, intro, sections } = req.body;
+
+  // Step 1: Update blog info
+  connection.query(
+    "UPDATE blogs SET title = ?, image_url = ?, intro = ? WHERE id = ?",
+    [title, image, intro, blogId],
+    (err) => {
+      if (err) {
+        return res.status(500).json({ error: "Failed to update blog" });
+      }
+
+      // Step 2: Delete removed sections
+      const sectionIds = sections.filter((s) => s.id).map((s) => s.id);
+      const deleteQuery = sectionIds.length
+        ? "DELETE FROM blog_sections WHERE blog_id = ? AND id NOT IN (?)"
+        : "DELETE FROM blog_sections WHERE blog_id = ?";
+
+      connection.query(
+        deleteQuery,
+        sectionIds.length ? [blogId, sectionIds] : [blogId],
+        (err) => {
+          if (err) {
+            return res
+              .status(500)
+              .json({ error: "Failed to delete old sections" });
+          }
+
+          // Step 3: Split into new vs existing sections
+          const newSections = sections.filter((s) => !s.id);
+          const existingSections = sections.filter((s) => s.id);
+
+          // Step 4: Insert new sections
+          const insertNew = (cb) => {
+            if (newSections.length === 0) return cb();
+
+            const newValues = newSections.map((s) => [
+              blogId,
+              s.heading,
+              s.content,
+            ]);
+            connection.query(
+              "INSERT INTO blog_sections (blog_id, heading, content) VALUES ?",
+              [newValues],
+              cb
+            );
+          };
+
+          // Step 5: Upsert existing sections
+          const upsertExisting = (cb) => {
+            if (existingSections.length === 0) return cb();
+
+            const existingValues = existingSections.map((s) => [
+              blogId,
+              s.heading,
+              s.content,
+              s.id,
+            ]);
+            connection.query(
+              `INSERT INTO blog_sections (blog_id, heading, content, id)
+             VALUES ?
+             ON DUPLICATE KEY UPDATE heading = VALUES(heading), content = VALUES(content)`,
+              [existingValues],
+              cb
+            );
+          };
+
+          // Step 6: Run both
+          insertNew((err) => {
+            if (err) {
+              console.error(err);
+              return res
+                .status(500)
+                .json({ error: "Failed to insert new sections" });
+            }
+            upsertExisting((err) => {
+              if (err) {
+                console.error(err);
+                return res
+                  .status(500)
+                  .json({ error: "Failed to update existing sections" });
+              }
+              res
+                .status(200)
+                .json({ message: "Blog and sections updated successfully" });
+            });
+          });
+        }
+      );
+    }
+  );
+});
+
+// Add new blog
+app.post("/add-blog", verifyToken, (req, res) => {
+  const { title, image, intro, sections } = req.body;
+
+  if (!title || !sections || !Array.isArray(sections)) {
+    return res.status(400).json({ error: "Title and sections are required" });
+  }
+
+  if (sections.length === 0) {
+    return res.status(400).json({ error: "At least one section is required" });
+  }
+
+  // Step 1: Check if blog with same title exists
+  connection.query(
+    "SELECT id FROM blogs WHERE title = ?",
+    [title],
+    (err, results) => {
+      if (err) {
+        console.error(err);
+        return res
+          .status(500)
+          .json({ error: "Database error while checking blog" });
+      }
+
+      if (results.length > 0) {
+        return res
+          .status(409)
+          .json({ error: "Blog with this title already exists" });
+      }
+
+      // Step 2: Insert the blog
+      connection.query(
+        "INSERT INTO blogs (title, image_url, intro) VALUES (?, ?, ?)",
+        [title, image, intro],
+        (err, result) => {
+          if (err) {
+            console.error(err);
+            return res.status(500).json({ error: "Failed to insert blog" });
+          }
+
+          const blogId = result.insertId;
+
+          // Step 3: Insert blog sections
+          const sectionValues = sections.map((section) => [
+            blogId,
+            section.heading,
+            section.content,
+          ]);
+
+          connection.query(
+            "INSERT INTO blog_sections (blog_id, heading, content) VALUES ?",
+            [sectionValues],
+            (err) => {
+              if (err) {
+                console.error(err);
+                return res
+                  .status(500)
+                  .json({ error: "Failed to insert sections" });
+              }
+
+              res.status(200).json({
+                message: "Blog and sections added successfully",
+                blogId: blogId,
+              });
+            }
+          );
+        }
+      );
+    }
+  );
 });
 
 const sendReminderEmails = async () => {
