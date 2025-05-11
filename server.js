@@ -28,17 +28,6 @@ const connection = mysql.createPool({
   connectionLimit: 10,
   queueLimit: 0,
 });
-<<<<<<< HEAD
-
-// connection.connect((err) => {
-//   if (err) {
-//     console.error("DB connection failed:", err);
-//     process.exit(1);
-//   }
-//   console.log("Connected to MySQL");
-// });
-=======
->>>>>>> 87bbc44be56f10f24e370acd981f341670398e3d
 
 // === MIDDLEWARE ===
 
@@ -78,20 +67,11 @@ const verifyToken = (req, res, next) => {
 // For Location
 app.get("/get-location", async (req, res) => {
   try {
-<<<<<<< HEAD
-    // 1. Get the user's IP addre
-    // ss (from the request header)
     const clientIp = req.headers["x-forwarded-for"]
-      ? req.headers["x-forwarded-for"].split(",")[0]
-      : req.socket.remoteAddress;
-    // 2. Use the real IP to fetch the location
-=======
-     const clientIp = req.headers["x-forwarded-for"]
       ? req.headers["x-forwarded-for"].split(",")[0]
       : req.socket.remoteAddress;
     console.log(`Client IP: ${clientIp}`);
     // 1. Get user location
->>>>>>> 87bbc44be56f10f24e370acd981f341670398e3d
     const locRes = await axios.get(
       `https://ipinfo.io/${clientIp}/json?token=${process.env.TOKEN}`
     );
@@ -107,10 +87,6 @@ app.get("/get-location", async (req, res) => {
   }
 });
 
-<<<<<<< HEAD
-=======
-
->>>>>>> 87bbc44be56f10f24e370acd981f341670398e3d
 // 1. User Submission
 app.post(
   "/submit-user",
@@ -480,83 +456,45 @@ app.delete("/delete-user/:id", verifyToken, (req, res) => {
     );
   });
 });
-// 6. Get latest 3 blogs
-app.get("/get-blogs", (req, res) => {
-  console.log("HELLOP");
-  const query = `
-  SELECT id, title, image_url, intro
-  FROM blogs
-  ORDER BY id DESC
-  LIMIT 3
-`;
-
-  connection.query(query, (err, results) => {
-    if (err) {
-      console.error("Blog fetch error:", err);
-      return res.status(500).json({ error: "Failed to fetch blogs" });
-    }
-
-    res.status(200).json({ blogs: results });
-  });
-});
-// Get all blogs
+// 6. Get all blogs
 app.get("/blogs", (req, res) => {
-  console.log("HELLOP");
-  const query = `
-  SELECT *
-  FROM blogs
-  
-`;
-
-  connection.query(query, (err, results) => {
-    if (err) {
-      console.error("Blog fetch error:", err);
-      return res.status(500).json({ error: "Failed to fetch blogs" });
-    }
-
-    res.status(200).json({ blogs: results });
-  });
-});
-
-// Get Spcific Blog
-app.get("/blogs/:id", (req, res) => {
-  const blogId = req.params.id;
-
   const query = `
     SELECT 
       b.id AS blogId, b.title, b.image_url, b.intro,
       s.id AS sectionId, s.heading, s.content
     FROM blogs b
     LEFT JOIN blog_sections s ON b.id = s.blog_id
-    WHERE b.id = ?
   `;
 
-  connection.query(query, [blogId], (err, results) => {
+  connection.query(query, (err, results) => {
     if (err) {
-      return res
-        .status(500)
-        .json({ error: "Database query failed", details: err });
+      console.error("Blog fetch error:", err);
+      return res.status(500).json({ error: "Failed to fetch blogs" });
     }
 
-    if (results.length === 0) {
-      return res.status(404).json({ message: "Blog not found" });
-    }
+    const blogsMap = new Map();
 
-    const blog = {
-      id: results[0].blogId,
-      title: results[0].title,
-      image: results[0].image_url, // Use image_url here
-      intro: results[0].intro,
-      sections: results
-        .filter((row) => row.sectionId !== null)
-        .map((row) => ({
+    results.forEach((row) => {
+      if (!blogsMap.has(row.blogId)) {
+        blogsMap.set(row.blogId, {
+          id: row.blogId,
+          title: row.title,
+          image: row.image_url,
+          intro: row.intro,
+          sections: [],
+        });
+      }
+
+      if (row.sectionId) {
+        blogsMap.get(row.blogId).sections.push({
           id: row.sectionId,
           heading: row.heading,
           content: row.content,
-        })),
-    };
+        });
+      }
+    });
 
-    res.status(200).json({ blog: blog }); // response key should match frontend
+    res.status(200).json({ blogs: Array.from(blogsMap.values()) });
   });
 });
 
