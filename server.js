@@ -812,6 +812,13 @@ cron.schedule("0 9 * * *", () => {
   sendReminderEmails();
 });
 
+app.use(express.static(path.join(__dirname, 'dist')));
+
+app.get('*', (req, res) => {
+  res.sendFile(path.join(__dirname, 'dist', 'index.html'));
+});
+
+
 // === START SERVER ===
 
 app.listen(port, () => {
