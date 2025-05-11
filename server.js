@@ -67,20 +67,14 @@ const verifyToken = (req, res, next) => {
 // For Location
 app.get("/get-location", async (req, res) => {
   try {
-<<<<<<< HEAD
-    const clientIp = req.headers["x-forwarded-for"]
-=======
+
 
      const clientIp = req.headers["x-forwarded-for"]
->>>>>>> 36a98593fc7538836c85a235877e8b344b5022bf
       ? req.headers["x-forwarded-for"].split(",")[0]
       : req.socket.remoteAddress;
     console.log(`Client IP: ${clientIp}`);
     // 1. Get user location
-<<<<<<< HEAD
-=======
 
->>>>>>> 36a98593fc7538836c85a235877e8b344b5022bf
     const locRes = await axios.get(
       `https://ipinfo.io/${clientIp}/json?token=${process.env.TOKEN}`
     );
@@ -96,10 +90,7 @@ app.get("/get-location", async (req, res) => {
   }
 });
 
-<<<<<<< HEAD
-=======
 
->>>>>>> 36a98593fc7538836c85a235877e8b344b5022bf
 // 1. User Submission
 app.post(
   "/submit-user",
